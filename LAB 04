@@ -1,0 +1,64 @@
+# =============================================================================
+# BDAE Lab 4: PySpark SQL Analysis of Investments Data
+# (Consolidated Code from BDAE_Lab_4_2219.ipynb)
+# =============================================================================
+
+# --- 1. Setup and Spark Session Creation ---
+from pyspark.sql import SparkSession
+
+# Create Spark Session
+spark = SparkSession.builder.appName("SparkSQL").getOrCreate()
+
+# --- 2. Data Loading and Inspection ---
+# Read data from the CSV file
+data = spark.read.options(inferSchema='True',header='True').csv("investments.csv")
+
+# Show sample data and schema
+data.show()
+data.columns
+data.printSchema()
+
+# --- 3. Create Temporary Table (Prerequisite for Spark SQL) ---
+# Create a temporary table named 'investment'
+data.createOrReplaceTempView('investment')
+
+# Verify table creation by selecting and showing 10 rows
+spark.sql("select * from investment limit 10").show()
+
+# --- 4. Filtering Data for USA Startups ---
+# Filter data to select only US startups
+usstartup = spark.sql("select * from investment where country_code == 'USA'")
+usstartup.show() # Show US startups
+usstartup.createOrReplaceTempView('usstartup_table') # Create a temp view for US data
+spark.sql("select * from usstartup_table limit 10").show() # Verify US temp view
+
+# --- 5. PySpark SQL Queries for Analysis ---
+
+# Find the most seeded startup in USA
+most_seed = spark.sql("select * from usstartup_table order by seed desc")
+most_seed.select('name','seed').show() # Show top 20 most seeded
+most_seed.head(1) # Get the first row object
+most_seed_startup = most_seed.head(1)[0].asDict() # Convert the row object to a dictionary for easier access
+print(most_seed_startup) # Print the dictionary
+print(most_seed_startup['venture']) # Access a specific value
+print(most_seed_startup['first_funding_at']) # Access a specific value
+
+# More Practice Queries
+
+# Count the total number of startups.
+spark.sql("select count(*) from investment").show()
+
+# List all unique countries.
+spark.sql("select distinct country_code from investment").show()
+
+# Find startups founded after 2010
+spark.sql("select * from investment where founded_year > 2010").show()
+
+# Count startups per country.
+spark.sql("select country_code, count(*) from investment group by country_code").show()
+
+# Get the average seed funding per country.
+spark.sql("select country_code, avg(seed) from investment group by country_code").show()
+
+# Find startups that raised venture funding above $10M.
+spark.sql("select name,venture from investment where venture > 10000000").show()
