@@ -1,0 +1,136 @@
+# ====================================
+# 1. Setup and Data Loading
+# ====================================
+import seaborn as sns
+import pandas as pd
+import numpy as np
+from scipy import stats
+from scipy.stats import norm
+from scipy.stats import chi2_contingency
+from scipy.stats import f_oneway
+import matplotlib.pyplot as plt
+
+# Load the dataset
+titanic = sns.load_dataset('titanic')
+
+# Initial data cleaning for common missing values used in all tests
+titanic = titanic.dropna(subset=['age', 'fare'])
+
+# Ensure required columns are numeric (for Z-test, T-test, and ANOVA)
+titanic['age'] = pd.to_numeric(titanic['age'], errors='coerce')
+titanic['pclass'] = pd.to_numeric(titanic['pclass'], errors='coerce')
+titanic = titanic.dropna(subset=['age', 'pclass'])
+
+# ====================================
+# 2. Z-test (One-Sample - Age)
+# H0: Mean age of survivors = Mean age of all passengers
+# ====================================
+population_mean_age = titanic['age'].mean()
+population_std_age = titanic['age'].std()
+survivors_age = titanic[titanic['survived'] == 1]['age']
+sample_mean_age = survivors_age.mean()
+sample_size_age = survivors_age.shape[0]
+alpha = 0.05
+
+z_stat_age = (sample_mean_age - population_mean_age) / (population_std_age / np.sqrt(sample_size_age))
+p_value_z = 2 * (1 - norm.cdf(abs(z_stat_age)))
+
+print("--- Z-test: Age of Survivors vs All Passengers ---")
+print("Z-statistic:", z_stat_age)
+print("P-value:", p_value_z)
+if p_value_z < alpha:
+    print("Conclusion: Reject H₀ (Significant difference in average age).")
+else:
+    print("Conclusion: Fail to Reject H₀ (No significant difference in average age).")
+print("-" * 40)
+
+
+# ====================================
+# 3. T-test (One-Sample - Fare)
+# H0: Mean fare of survivors = Mean fare of all passengers
+# ====================================
+population_mean_fare = titanic['fare'].mean()
+survivors_fare = titanic[titanic['survived'] == 1]['fare'].dropna()
+x_bar_fare = survivors_fare.mean()
+s_fare = survivors_fare.std(ddof=1)
+n_fare = survivors_fare.shape[0]
+df_fare = n_fare - 1
+alpha = 0.05
+
+t_stat_fare_one_sample = (x_bar_fare - population_mean_fare) / (s_fare / np.sqrt(n_fare))
+p_value_t_one_sample = 2 * stats.t.sf(abs(t_stat_fare_one_sample), df_fare)
+
+print("--- T-test (One-Sample): Fare of Survivors vs All Passengers ---")
+print("t-statistic:", t_stat_fare_one_sample)
+print("P-value:", p_value_t_one_sample)
+if p_value_t_one_sample < alpha:
+    print("Conclusion: Reject H₀ (Survivors' mean fare is significantly different).")
+else:
+    print("Conclusion: Fail to Reject H₀ (No significant difference in mean fare).")
+print("-" * 40)
+
+
+# ====================================
+# 4. T-test (Two-Sample - Male vs Female Fare)
+# H0: Mean male fare = Mean female fare
+# ====================================
+male_fare = titanic[titanic['sex'] == 'male']['fare'].dropna()
+female_fare = titanic[titanic['sex'] == 'female']['fare'].dropna()
+x1, s1, n1 = male_fare.mean(), male_fare.std(ddof=1), male_fare.shape[0]
+x2, s2, n2 = female_fare.mean(), female_fare.std(ddof=1), female_fare.shape[0]
+alpha = 0.10
+
+# Pooled variance
+sp2 = (((n1 - 1) * s1**2) + ((n2 - 1) * s2**2)) / (n1 + n2 - 2)
+t_pooled = (x1 - x2) / np.sqrt(sp2 * (1/n1 + 1/n2))
+df_pooled = n1 + n2 - 2
+p_pooled = 2 * stats.t.sf(abs(t_pooled), df_pooled)
+
+print("--- T-test (Two-Sample): Male vs Female Mean Fares (Pooled) ---")
+print("t-statistic:", t_pooled)
+print("P-value:", p_pooled)
+if p_pooled < alpha:
+    print("Conclusion: Reject H₀ (Male and female mean fares differ significantly).")
+else:
+    print("Conclusion: Fail to reject H₀ (No significant difference in mean fares).")
+print("-" * 40)
+
+
+# ====================================
+# 5. Chi-Square Test (Sex vs Survival)
+# H0: No association between sex and survival
+# ====================================
+contingency_table = pd.crosstab(titanic['sex'], titanic['survived'])
+chi2, p_chi2, dof, expected = chi2_contingency(contingency_table)
+alpha = 0.05
+
+print("--- Chi-Square Test: Sex vs Survival ---")
+print("Contingency Table:\n", contingency_table)
+print("Chi-Square Statistic:", chi2)
+print("P-value:", p_chi2)
+if p_chi2 < alpha:
+    print("Conclusion: Reject H₀ (There IS a significant association between sex and survival).")
+else:
+    print("Conclusion: Fail to Reject H₀ (There is NO significant association).")
+print("-" * 40)
+
+
+# ====================================
+# 6. ANOVA (F-test - Age vs Passenger Class)
+# H0: Mean age is the same across all passenger classes
+# ====================================
+age_class1 = titanic[titanic['pclass'] == 1]['age']
+age_class2 = titanic[titanic['pclass'] == 2]['age']
+age_class3 = titanic[titanic['pclass'] == 3]['age']
+alpha = 0.05
+
+f_stat_anova, p_value_anova = f_oneway(age_class1, age_class2, age_class3)
+
+print("--- ANOVA: Mean Age Across Passenger Classes (pclass) ---")
+print("F-statistic:", f_stat_anova)
+print("P-value:", p_value_anova)
+if p_value_anova < alpha:
+    print("Conclusion: Reject H₀ (Mean ages are significantly different across passenger classes).")
+else:
+    print("Conclusion: Fail to reject H₀ (No significant difference in mean ages across classes).")
+print("-" * 40)
