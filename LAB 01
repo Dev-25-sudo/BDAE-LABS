@@ -1,0 +1,145 @@
+# ------------------------------------
+# 1. Initial Setup and Import
+# ------------------------------------
+import warnings
+warnings.filterwarnings('ignore')
+import matplotlib.pyplot as plt, seaborn as sns
+%matplotlib.inline
+import pandas as pd
+import numpy as np
+
+# ------------------------------------
+# 2. Data Loading and Initial Inspection
+# ------------------------------------
+# Initial load to inspect header structure
+data = pd.read_csv('bank_marketing_updated_v1.csv')
+data.head()
+
+# Load data correctly by skipping header rows
+data = pd.read_csv('bank_marketing_updated_v1.csv',skiprows=2)
+data.head()
+
+# ------------------------------------
+# 3. Data Cleaning and Preprocessing
+# ------------------------------------
+
+# Drop 'customerid'
+data.drop('customerid',axis=1,inplace=True)
+data.head()
+
+# Extract 'job' and 'education' from 'jobedu'
+data['job']=data.jobedu.apply(lambda x: x.split(',')[0])
+data.head()
+data['education']=data.jobedu.apply(lambda x: x.split(',')[1])
+data.head()
+
+# Drop original 'jobedu' column
+data.drop('jobedu',axis=1,inplace=True)
+data.head()
+
+# Split 'month' column into 'month' and 'year'
+data[['month', 'year']] = data['month'].str.split(',', expand=True)
+
+# Check for missing values after initial cleaning
+missing_count = data.isnull().sum()
+print(missing_count)
+data.shape
+
+# Handle missing values for 'age' (impute with mean and round)
+mean_age = data['age'].mean()
+data['age'].fillna(mean_age,inplace=True)
+#round of into whole number
+data['age'].fillna(round(mean_age), inplace=True)
+missing_count = data.isnull().sum()
+print(missing_count)
+
+# Handle missing values for 'month' and 'response' (impute with mode)
+mode_month = data['month'].mode()[0]
+data['month'].fillna(mode_month, inplace=True)
+mode_response = data['response'].mode()[0]
+data['response'].fillna(mode_response, inplace=True)
+missing_count = data.isnull().sum()
+print(missing_count)
+
+# Handle '-1' in 'pdays' column (replace with NaN as it indicates no prior contact)
+data.pdays.describe()
+data.replace(-1,np.nan, inplace=True)
+data.pdays.describe()
+
+# Drop rows with NaN values (primarily from 'pdays' and subsequently other columns like 'month'/'response' if they were still missing)
+data.dropna(inplace=True)
+data.pdays.describe()
+
+# ------------------------------------
+# 4. Statistical Analysis and Summaries
+# ------------------------------------
+data.describe()
+data.salary.describe()
+data.dtypes
+numerical_cols = data.select_dtypes(include=['int64', 'float64']).columns.tolist()
+print("Numerical columns:", numerical_cols)
+categorical_cols = data.select_dtypes(include=['object', 'category']).columns.tolist()
+print("Categorical columns:", categorical_cols)
+correlation = data[['age', 'balance']].corr()
+print(correlation)
+
+
+# ------------------------------------
+# 5. Visualization
+# ------------------------------------
+
+# Univariate Analysis - Numerical columns (Histograms)
+data.age.plot.hist()
+plt.plot()
+data.salary.plot.hist()
+plt.plot()
+data.balance.plot.hist()
+plt.plot()
+data.day.plot.hist()
+plt.plot()
+
+# Univariate Analysis - Numerical columns (Boxplots)
+sns.boxplot(x=data['age'])
+plt.show()
+sns.boxplot(x=data['salary'])
+plt.show()
+sns.boxplot(x=data['balance'])
+plt.show()
+
+# Univariate Analysis - Categorical columns
+data.marital.value_counts(normalize=True).plot.barh()
+plt.show()
+data.job.value_counts(normalize=True).plot.barh()
+plt.show()
+data.education.value_counts(normalize=True).plot.pie()
+plt.show()
+data.response.value_counts(normalize=True).plot.pie()
+plt.show()
+
+# Bivariate Analysis - Categorical vs. Numerical (Boxplot)
+sns.boxplot(x='education', y='balance', data=data)
+plt.title('Balance Distribution by Education Level')
+plt.xticks(rotation=45)
+
+# Bivariate Analysis - Categorical vs. Categorical (Stacked Bar and Heatmap)
+pd.crosstab(data['education'], data['response'], normalize='index').plot(kind='bar', stacked=True)
+plt.title('Response Rate by Education Level')
+plt.xlabel('Education')
+plt.ylabel('Proportion')
+plt.xticks(rotation=45)
+plt.show()
+cross_tab = pd.crosstab(data['education'], data['response'])
+sns.heatmap(cross_tab, annot=True, cmap='coolwarm', fmt='d')
+plt.title('Education vs Response Heatmap')
+plt.ylabel('Education')
+plt.xlabel('Response')
+plt.show()
+
+# Bivariate Analysis - Numerical vs. Numerical (Scatter Plot and Correlation Heatmap)
+sns.scatterplot(x='age', y='balance', data=data)
+plt.title('Age vs Balance')
+plt.xlabel('Age')
+plt.ylabel('Balance')
+sns.heatmap(correlation, annot=True, cmap='coolwarm')
+plt.title('Correlation Matrix')
+plt.show()
