@@ -1,0 +1,66 @@
+# =============================================================================
+# BDAE Lab 3: Data Preprocessing and Analysis
+# (Consolidated Code from BDAE_Lab_3_2219.ipynb)
+# =============================================================================
+
+# --- Initial Setup and Imports ---
+import seaborn as sns
+import pandas as pd
+import numpy as np
+from scipy import stats
+from google.colab import files
+import findspark
+from pyspark.sql import SparkSession
+import pyspark.sql.functions as f
+from pyspark.sql.functions import col, split, explode, lower, regexp_replace, sum as spark_sum, count, countDistinct
+
+# --- File Upload (Interactive step in original notebook) ---
+# NOTE: In a non-Colab environment, you must ensure the CSV file is accessible.
+# This code block simulates the upload prompt and printout from the original notebook.
+uploaded = files.upload()
+print("Saving Amazon_Responded_Oct05.csv to Amazon_Responded_Oct05.csv")
+
+# --- PySpark Installation and Initialization ---
+!pip install pyspark
+!pip install -q findspark
+findspark.init()
+
+# --- Spark Session Creation ---
+spark = SparkSession.builder.appName("ColabPySpark").getOrCreate()
+
+# --- Data Loading and Pandas Preprocessing ---
+import pandas as pd
+amazon_df= pd.read_csv("Amazon_Responded_Oct05.csv")
+amazon_df.head() # Shows initial header structure
+
+# Drop rows where ALL values are NaN (to remove potential initial header/empty rows)
+amazon_df.dropna(how="all", inplace=True)
+print(amazon_df.shape) # Shows shape after dropping NaNs
+
+# Replace newline characters (\r\n) with a space for cleaner text
+amazon_df=amazon_df.replace({r'\r\n':' '}, regex=True)
+amazon_df.head() # Shows head after cleaning
+
+# Convert Pandas DataFrame to PySpark DataFrame (all columns cast to string first)
+amazon_df = amazon_df.astype(str)
+amazon_sdf = spark.createDataFrame(amazon_df)
+amazon_sdf.show(10,False)
+print("Total columns:", amazon_df.shape[1])
+amazon_sdf.printSchema()
+
+# --- PySpark Data Selection and Type Casting ---
+# Select relevant columns and cast followers count to integer for filtering
+amazon_sub_df = amazon_sdf.select(amazon_sdf.user_id_str, amazon_sdf.user_followers_count.cast('int').alias('user_followers_count'), amazon_sdf.text_)
+amazon_sub_df.show(20, False)
+
+# Count distinct users
+import pyspark.sql.functions as f
+amazon_sub_df.select(f.countDistinct("user_id_str")).show()
+
+# Example count for a specific user_id_str (AmazonHelp)
+amazon_sub_df.filter(amazon_sub_df.user_id_str == '85741735.0').count()
+
+# Example max followers count by user
+import pyspark.sql.functions as f
+maxf = amazon_sub_df.groupBy("user_id_str").agg(f.max("user_followers_count").alias("max")).alias("maxf")
+maxf.show()
